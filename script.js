@@ -1,5 +1,5 @@
 let audioCtx;
-let noiseSource;
+let noiseSource = null; // globally defined
 let gainNode;
 let filter1, filter2, filter3;
 let reverb;
@@ -50,8 +50,10 @@ function startAudio(noiseType = "white") {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    
+
+    // ✅ Resume audio first before starting playback
     audioCtx.resume().then(() => {
+        // 🔹 Create a new noise source each time
         let noiseBuffer = generateNoise(noiseType);
         noiseSource = audioCtx.createBufferSource();
         noiseSource.buffer = noiseBuffer;
@@ -91,6 +93,7 @@ function startAudio(noiseType = "white") {
         startMotionTracking();
     }).catch(error => console.error("AudioContext Resume Failed:", error));
 }
+
 
 // 🔹 Stop Audio
 function stopAudio() {
@@ -139,7 +142,7 @@ function generateNoise(type = "white") {
             lastOut = output[i];
         } else if (type === "brown") {
             lastOut += 0.02 * white;
-            output[i] = lastOut * 0.5; // Ensures smooth transition
+            output[i] = lastOut * 0.4; // Smaller factor for stability
         }
     }
 
@@ -155,7 +158,12 @@ function loadReverbImpulse(convolver) {
             convolver.buffer = buffer;
         }))
         .catch(error => console.error("Reverb loading failed:", error));
+
+    // Set a basic impulse response while loading
+    const fakeBuffer = audioCtx.createBuffer(2, 1, audioCtx.sampleRate);
+    convolver.buffer = fakeBuffer;
 }
+
 
 // 🔹 Motion-Controlled Sound Filters
 function startMotionTracking() {
