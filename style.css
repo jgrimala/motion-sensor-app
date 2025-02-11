@@ -23,6 +23,15 @@ button:hover {
     background-color: #0056b3;
 }
 
+#resetSound {
+    background-color: #dc3545;
+    color: white;
+}
+
+#resetSound:hover {
+    background-color: #a71d2a;
+}
+
 .controls {
     margin-top: 10px;
 }
@@ -46,13 +55,4 @@ select {
 
 h1 {
     color: #333;
-}
-
-#resetSound {
-    background-color: #dc3545;
-    color: white;
-}
-
-#resetSound:hover {
-    background-color: #a71d2a;
 }
