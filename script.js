@@ -24,6 +24,28 @@ document.getElementById("requestPermission").addEventListener("click", async () 
     }
 });
 
+// 🔹 Stop & Reset Button Functionality
+document.getElementById("resetSound").addEventListener("click", () => {
+    stopAudio();
+    resetFilters();
+    document.getElementById("toggleSound").textContent = "Start Sound";
+});
+
+// 🔹 Reset Sound Filter Parameters
+function resetFilters() {
+    if (filterNode) {
+        filterNode.frequency.value = 500; // Default Center Frequency
+        filterNode.Q.value = 5; // Default Bandwidth
+    }
+    if (distortionNode) {
+        distortionNode.curve = makeDistortionCurve(0); // No distortion
+    }
+
+    // Reset UI values
+    document.getElementById("pitch").textContent = "500";
+    document.getElementById("volume").textContent = "5";
+}
+
 // 🔹 Start/Stop Sound
 document.getElementById("toggleSound").addEventListener("click", () => {
     let selectedNoise = document.getElementById("noiseType").value;
@@ -95,8 +117,10 @@ function generateNoise(type = "white") {
             output[i] = (lastOut + (0.02 * white)) / 1.02;
             lastOut = output[i];
         } else if (type === "brown") {
-            output[i] = (lastOut + (0.02 * white)) / 1.02;
-            lastOut = output[i] * 3.5; // Deeper low-end
+			lastOut += 0.02 * white;
+            output[i] = lastOut;
+            if (lastOut > 1) lastOut = 1;
+            if (lastOut < -1) lastOut = -1;
         }
     }
 

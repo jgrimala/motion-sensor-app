@@ -47,3 +47,12 @@ select {
 h1 {
     color: #333;
 }
+
+#resetSound {
+    background-color: #dc3545;
+    color: white;
+}
+
+#resetSound:hover {
+    background-color: #a71d2a;
+}
