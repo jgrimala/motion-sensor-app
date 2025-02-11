@@ -37,7 +37,7 @@ document.getElementById("toggleSound").addEventListener("click", () => {
     }
 });
 
-// 🔹 Initialize Audio with Filters
+// 🔹 Initialize Audio with Bandpass Filter
 function startAudio(noiseType = "white") {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -51,17 +51,18 @@ function startAudio(noiseType = "white") {
     gainNode = audioCtx.createGain();
     gainNode.gain.value = 0.5;
 
-    // 🔹 Add a Low-Pass Filter (Muffles Sound at Higher Frequencies)
+    // 🔹 Add a Bandpass Filter (Dynamic Frequency Shift)
     filterNode = audioCtx.createBiquadFilter();
-    filterNode.type = "lowpass";
-    filterNode.frequency.value = 1000; // Default frequency cutoff
+    filterNode.type = "bandpass";
+    filterNode.frequency.value = 500; // Center frequency (default)
+    filterNode.Q.value = 5; // Bandwidth (default)
 
     // 🔹 Add a Distortion Effect
     distortionNode = audioCtx.createWaveShaper();
     distortionNode.curve = makeDistortionCurve(0); // No distortion at start
     distortionNode.oversample = "4x"; // Smoother distortion
 
-    // Connect Nodes: Noise → Distortion → Filter → Gain → Output
+    // Connect Nodes: Noise → Distortion → Bandpass Filter → Gain → Output
     noiseSource.connect(distortionNode);
     distortionNode.connect(filterNode);
     filterNode.connect(gainNode);
@@ -114,22 +115,26 @@ function makeDistortionCurve(amount) {
     return curve;
 }
 
-// 🔹 Motion-Controlled Sound Filters
+// 🔹 Motion-Controlled Bandpass Filter & Distortion
 function startMotionTracking() {
     window.addEventListener("deviceorientation", (event) => {
         let pitch = Math.abs(event.beta); // Forward/Backward tilt
         let roll = Math.abs(event.gamma); // Side tilt
-        
-        // 🔹 Adjust Low-Pass Filter Based on Forward Tilt
-        let cutoffFreq = 300 + pitch * 20; // Higher tilt → Higher cutoff frequency
-        filterNode.frequency.value = cutoffFreq;
+
+        // 🔹 Adjust Bandpass Filter Frequency Based on Forward Tilt
+        let centerFreq = 300 + pitch * 30; // Move center frequency from 300Hz to ~2700Hz
+        filterNode.frequency.value = centerFreq;
+
+        // 🔹 Adjust Bandwidth (Q Factor) Based on Side Tilt
+        let qFactor = 2 + (roll / 90) * 8; // Adjust Q from 2 to 10
+        filterNode.Q.value = qFactor;
 
         // 🔹 Adjust Distortion Based on Side Tilt
         let distortionAmount = roll / 90 * 400; // Scale tilt to distortion intensity
         distortionNode.curve = makeDistortionCurve(distortionAmount);
 
         // 🔹 Update UI
-        document.getElementById("pitch").textContent = cutoffFreq.toFixed(2);
-        document.getElementById("volume").textContent = (distortionAmount / 400).toFixed(2);
+        document.getElementById("pitch").textContent = centerFreq.toFixed(2);
+        document.getElementById("volume").textContent = qFactor.toFixed(2);
     });
 }
