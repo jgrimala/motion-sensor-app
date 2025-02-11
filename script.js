@@ -47,63 +47,81 @@ document.getElementById("resetSound").addEventListener("click", () => {
 
 // 🔹 Initialize Audio with Resonant Filters & Reverb
 function startAudio(noiseType = "white") {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    audioCtx.resume().then(() => {
+        // 🔹 Create a new noise source each time
+        let noiseBuffer = generateNoise(noiseType);
+        noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = noiseBuffer;
+        noiseSource.loop = true;
 
-    // 🔹 Create Noise Source
-    let noiseBuffer = generateNoise(noiseType);
-    noiseSource = audioCtx.createBufferSource();
-    noiseSource.buffer = noiseBuffer;
-    noiseSource.loop = true;
+        // 🔹 Create Gain Node (Volume Control)
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = 0.5;
 
-    // 🔹 Create Gain Node (Volume Control)
-    gainNode = audioCtx.createGain();
-    gainNode.gain.value = 0.5;
+        // 🔹 Create Multiple Resonant Bandpass Filters
+        filter1 = audioCtx.createBiquadFilter();
+        filter1.type = "bandpass";
+        filter1.frequency.value = 400;
+        filter1.Q.value = 10;
 
-    // 🔹 Create Multiple Resonant Bandpass Filters
-    filter1 = audioCtx.createBiquadFilter();
-    filter1.type = "bandpass";
-    filter1.frequency.value = 400;
-    filter1.Q.value = 10;
+        filter2 = audioCtx.createBiquadFilter();
+        filter2.type = "bandpass";
+        filter2.frequency.value = 800;
+        filter2.Q.value = 10;
 
-    filter2 = audioCtx.createBiquadFilter();
-    filter2.type = "bandpass";
-    filter2.frequency.value = 800;
-    filter2.Q.value = 10;
+        filter3 = audioCtx.createBiquadFilter();
+        filter3.type = "bandpass";
+        filter3.frequency.value = 1600;
+        filter3.Q.value = 10;
 
-    filter3 = audioCtx.createBiquadFilter();
-    filter3.type = "bandpass";
-    filter3.frequency.value = 1600;
-    filter3.Q.value = 10;
+        // 🔹 Add Reverb
+        reverb = audioCtx.createConvolver();
+        loadReverbImpulse(reverb);
 
-    // 🔹 Add Reverb
-    reverb = audioCtx.createConvolver();
-    loadReverbImpulse(reverb);
+        // 🔹 Connect Nodes: Noise → Filters → Reverb → Gain → Output
+        noiseSource.connect(filter1);
+        filter1.connect(filter2);
+        filter2.connect(filter3);
+        filter3.connect(reverb);
+        reverb.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
 
-    // 🔹 Connect Nodes: Noise → Filters → Reverb → Gain → Output
-    noiseSource.connect(filter1);
-    filter1.connect(filter2);
-    filter2.connect(filter3);
-    filter3.connect(reverb);
-    reverb.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-
-    noiseSource.start();
+        noiseSource.start();
+    }).catch(error => console.error("AudioContext Resume Failed:", error));
 }
+
 
 // 🔹 Stop Audio
 function stopAudio() {
-    if (noiseSource) noiseSource.stop();
-    if (audioCtx) audioCtx.close();
-    audioCtx = null;
+    if (noiseSource) {
+        noiseSource.stop();
+        noiseSource.disconnect();
+    }
+
+    if (audioCtx) {
+        audioCtx.close();
+        audioCtx = null;
+    }
+
+    // Remove motion event listener
     window.removeEventListener("deviceorientation", updateSoundFilters);
 }
+
 
 // 🔹 Reset Sound Filter Parameters
 function resetFilters() {
     if (filter1) filter1.frequency.value = 400;
     if (filter2) filter2.frequency.value = 800;
     if (filter3) filter3.frequency.value = 1600;
+
+    document.getElementById("pitch").textContent = "400";
+    document.getElementById("volume").textContent = "5";
 }
+
 
 // 🔹 Generate Noise Buffer
 function generateNoise(type = "white") {
@@ -135,12 +153,27 @@ function loadReverbImpulse(convolver) {
 
 // 🔹 Motion-Controlled Sound Filters
 function startMotionTracking() {
+    // Remove any existing motion listener to prevent duplicates
     window.removeEventListener("deviceorientation", updateSoundFilters);
+    
+    // Add new event listener
     window.addEventListener("deviceorientation", updateSoundFilters);
 }
 
+
 function updateSoundFilters(event) {
-    filter1.frequency.value = 400 + event.beta * 20;
-    filter2.frequency.value = 800 + event.gamma * 10;
-    filter3.frequency.value = 1600 - event.gamma * 5;
+    if (!filter1 || !filter2 || !filter3) return; // Prevent errors if filters don't exist
+
+    let pitch = Math.abs(event.beta);  // Forward/Backward tilt
+    let roll = Math.abs(event.gamma);  // Side tilt
+
+    // 🔹 Adjust Bandpass Filter Frequencies
+    filter1.frequency.value = 400 + pitch * 20;
+    filter2.frequency.value = 800 + roll * 10;
+    filter3.frequency.value = 1600 - roll * 5;
+
+    // 🔹 Update UI
+    document.getElementById("pitch").textContent = filter1.frequency.value.toFixed(2);
+    document.getElementById("volume").textContent = filter2.Q.value.toFixed(2);
 }
+
