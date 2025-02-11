@@ -51,9 +51,9 @@ function startAudio(noiseType = "white") {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    // ✅ Ensure AudioContext is resumed
+    // ✅ Resume audio first before starting playback
     audioCtx.resume().then(() => {
-        // ✅ Always recreate the noise source before starting
+        // ✅ Ensure old noise source is removed before creating a new one
         if (noiseSource) {
             noiseSource.stop();
             noiseSource.disconnect();
@@ -65,7 +65,7 @@ function startAudio(noiseType = "white") {
         noiseSource.loop = true;
 
         gainNode = audioCtx.createGain();
-        gainNode.gain.value = 0.5;
+        gainNode.gain.value = 0.5; // ✅ Ensure sound is not muted
 
         filter1 = audioCtx.createBiquadFilter();
         filter1.type = "bandpass";
@@ -82,8 +82,8 @@ function startAudio(noiseType = "white") {
         filter3.frequency.value = 1600;
         filter3.Q.value = 10;
 
-        reverb = audioCtx.createConvolver();
-        loadReverbImpulse(reverb);
+        // ✅ Change reverb type (Simple Reverb Instead of Impulse Response)
+        reverb = createSimpleReverb();
 
         // ✅ Connect nodes properly
         noiseSource.connect(filter1);
@@ -99,6 +99,7 @@ function startAudio(noiseType = "white") {
         startMotionTracking();
     }).catch(error => console.error("AudioContext Resume Failed:", error));
 }
+
 
 
 
@@ -161,20 +162,40 @@ function generateNoise(type = "white") {
 
 
 
-// 🔹 Load Reverb Impulse
-function loadReverbImpulse(convolver) {
-    fetch("https://cdn.freesound.org/reverb-impulse-response.wav")
-        .then(response => response.arrayBuffer())
-        .then(data => audioCtx.decodeAudioData(data, buffer => {
-            convolver.buffer = buffer;
-        }))
-        .catch(error => console.error("Reverb loading failed:", error));
+// 🔹 Load Reverb Impulse / commented for test with a simple delay effect reverb
+// function loadReverbImpulse(convolver) {
+//     fetch("https://cdn.freesound.org/reverb-impulse-response.wav")
+//         .then(response => response.arrayBuffer())
+//         .then(data => audioCtx.decodeAudioData(data, buffer => {
+//             convolver.buffer = buffer;
+//         }))
+//         .catch(error => console.error("Reverb loading failed:", error));
 
-    // Set a basic impulse response while loading
-    const fakeBuffer = audioCtx.createBuffer(2, 1, audioCtx.sampleRate);
-    convolver.buffer = fakeBuffer;
+//     // Set a basic impulse response while loading
+//     const fakeBuffer = audioCtx.createBuffer(2, 1, audioCtx.sampleRate);
+//     convolver.buffer = fakeBuffer;
+// }
+
+function createSimpleReverb() {
+    let delay = audioCtx.createDelay();
+    delay.delayTime.value = 0.3; // Short delay for reverb effect
+
+    let feedback = audioCtx.createGain();
+    feedback.gain.value = 0.5; // Adjust for more/less reverb
+
+    let filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 2000; // Filter out high frequencies in reverb
+
+    delay.connect(feedback);
+    feedback.connect(filter);
+    filter.connect(delay);
+
+    let reverb = audioCtx.createGain();
+    delay.connect(reverb);
+
+    return reverb;
 }
-
 
 // 🔹 Motion-Controlled Sound Filters
 function startMotionTracking() {
