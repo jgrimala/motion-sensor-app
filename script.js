@@ -52,17 +52,14 @@ function startAudio(noiseType = "white") {
     }
     
     audioCtx.resume().then(() => {
-        // 🔹 Create a new noise source each time
         let noiseBuffer = generateNoise(noiseType);
         noiseSource = audioCtx.createBufferSource();
         noiseSource.buffer = noiseBuffer;
         noiseSource.loop = true;
 
-        // 🔹 Create Gain Node (Volume Control)
         gainNode = audioCtx.createGain();
         gainNode.gain.value = 0.5;
 
-        // 🔹 Create Multiple Resonant Bandpass Filters
         filter1 = audioCtx.createBiquadFilter();
         filter1.type = "bandpass";
         filter1.frequency.value = 400;
@@ -78,11 +75,9 @@ function startAudio(noiseType = "white") {
         filter3.frequency.value = 1600;
         filter3.Q.value = 10;
 
-        // 🔹 Add Reverb
         reverb = audioCtx.createConvolver();
         loadReverbImpulse(reverb);
 
-        // 🔹 Connect Nodes: Noise → Filters → Reverb → Gain → Output
         noiseSource.connect(filter1);
         filter1.connect(filter2);
         filter2.connect(filter3);
@@ -91,9 +86,11 @@ function startAudio(noiseType = "white") {
         gainNode.connect(audioCtx.destination);
 
         noiseSource.start();
+
+        // ✅ Start motion tracking when sound starts
+        startMotionTracking();
     }).catch(error => console.error("AudioContext Resume Failed:", error));
 }
-
 
 // 🔹 Stop Audio
 function stopAudio() {
@@ -107,9 +104,10 @@ function stopAudio() {
         audioCtx = null;
     }
 
-    // Remove motion event listener
+    // ✅ Remove motion tracking when stopping
     window.removeEventListener("deviceorientation", updateSoundFilters);
 }
+
 
 
 // 🔹 Reset Sound Filter Parameters
@@ -133,13 +131,21 @@ function generateNoise(type = "white") {
 
     for (let i = 0; i < bufferSize; i++) {
         let white = Math.random() * 2 - 1;
-        if (type === "white") output[i] = white;
-        else if (type === "pink") output[i] = (lastOut + (0.02 * white)) / 1.02, lastOut = output[i];
-        else if (type === "brown") output[i] = lastOut = (lastOut * 0.99) + (0.01 * white);
+        
+        if (type === "white") {
+            output[i] = white;
+        } else if (type === "pink") {
+            output[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = output[i];
+        } else if (type === "brown") {
+            lastOut += 0.02 * white;
+            output[i] = lastOut * 0.5; // Ensures smooth transition
+        }
     }
 
     return noiseBuffer;
 }
+
 
 // 🔹 Load Reverb Impulse
 function loadReverbImpulse(convolver) {
@@ -153,12 +159,10 @@ function loadReverbImpulse(convolver) {
 
 // 🔹 Motion-Controlled Sound Filters
 function startMotionTracking() {
-    // Remove any existing motion listener to prevent duplicates
     window.removeEventListener("deviceorientation", updateSoundFilters);
-    
-    // Add new event listener
     window.addEventListener("deviceorientation", updateSoundFilters);
 }
+
 
 
 function updateSoundFilters(event) {
