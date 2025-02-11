@@ -3,17 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motion-Controlled Sound</title>
+    <title>Motion-Controlled Noise</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Motion-Controlled Sound</h1>
-    
+    <h1>Motion-Controlled Noise & Filters</h1>
+
     <button id="requestPermission">Enable Motion Sensors</button>
     <button id="toggleSound">Start Sound</button>
 
+    <div class="controls">
+        <label for="noiseType">Select Noise Type:</label>
+        <select id="noiseType">
+            <option value="white">White Noise</option>
+            <option value="pink">Pink Noise</option>
+            <option value="brown">Brown Noise</option>
+        </select>
+    </div>
+
     <div class="status">
-		<h2>Sound Filters</h2>
+        <h2>Sound Filters</h2>
         <p>Low-Pass Filter (Hz): <span id="pitch">1000</span></p>
         <p>Distortion Level: <span id="volume">0</span></p>
     </div>

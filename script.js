@@ -1,10 +1,10 @@
 let audioCtx;
-let oscillator;
+let noiseSource;
 let gainNode;
 let filterNode;
 let distortionNode;
 
-// 🔹 Request motion sensor permission
+// 🔹 Request Motion Permission
 document.getElementById("requestPermission").addEventListener("click", async () => {
     if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
         try {
@@ -18,17 +18,18 @@ document.getElementById("requestPermission").addEventListener("click", async () 
             console.error("Error requesting permission:", error);
         }
     } else if (typeof DeviceMotionEvent !== "undefined") {
-        // No permission request needed on Android or older iOS
         startMotionTracking();
     } else {
         alert("Your browser does not support motion sensors.");
     }
 });
 
-// 🔹 Start/Stop Sound on Button Click
+// 🔹 Start/Stop Sound
 document.getElementById("toggleSound").addEventListener("click", () => {
+    let selectedNoise = document.getElementById("noiseType").value;
+
     if (!audioCtx) {
-        startAudio();
+        startAudio(selectedNoise);
         document.getElementById("toggleSound").textContent = "Stop Sound";
     } else {
         stopAudio();
@@ -36,20 +37,21 @@ document.getElementById("toggleSound").addEventListener("click", () => {
     }
 });
 
-// 🔹 Initialize Audio
-function startAudio() {
+// 🔹 Initialize Audio with Filters
+function startAudio(noiseType = "white") {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-	// Create Oscillator (Sound Source)
-    oscillator = audioCtx.createOscillator();
-	oscillator.type = "sine"; // Wave type (sine, square, sawtooth)
-    oscillator.frequency.value = 440; // Default pitch
+    // 🔹 Create Noise Source
+    let noiseBuffer = generateNoise(noiseType);
+    noiseSource = audioCtx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+    noiseSource.loop = true;
 
-	// Create Gain Node (Volume Control)
+    // 🔹 Create Gain Node (Volume Control)
     gainNode = audioCtx.createGain();
-    gainNode.gain.value = 0.5; // Default volume
+    gainNode.gain.value = 0.5;
 
-	// 🔹 Add a Low-Pass Filter (Muffles Sound at Higher Frequencies)
+    // 🔹 Add a Low-Pass Filter (Muffles Sound at Higher Frequencies)
     filterNode = audioCtx.createBiquadFilter();
     filterNode.type = "lowpass";
     filterNode.frequency.value = 1000; // Default frequency cutoff
@@ -59,20 +61,45 @@ function startAudio() {
     distortionNode.curve = makeDistortionCurve(0); // No distortion at start
     distortionNode.oversample = "4x"; // Smoother distortion
 
-	// Connect Nodes: Oscillator → Distortion → Filter → Gain → Output
-    oscillator.connect(distortionNode);
+    // Connect Nodes: Noise → Distortion → Filter → Gain → Output
+    noiseSource.connect(distortionNode);
     distortionNode.connect(filterNode);
-    oscillator.connect(gainNode);
+    filterNode.connect(gainNode);
     gainNode.connect(audioCtx.destination);
 
-    oscillator.start();
+    noiseSource.start();
 }
 
 // 🔹 Stop Audio
 function stopAudio() {
-    if (oscillator) oscillator.stop();
+    if (noiseSource) noiseSource.stop();
     if (audioCtx) audioCtx.close();
     audioCtx = null;
+}
+
+// 🔹 Generate Noise Buffer
+function generateNoise(type = "white") {
+    const bufferSize = 2 * audioCtx.sampleRate; // 2 seconds of sound
+    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+
+    let lastOut = 0; // Used for Pink/Brown noise smoothing
+
+    for (let i = 0; i < bufferSize; i++) {
+        let white = Math.random() * 2 - 1; // Base white noise
+
+        if (type === "white") {
+            output[i] = white; // Pure white noise
+        } else if (type === "pink") {
+            output[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = output[i];
+        } else if (type === "brown") {
+            output[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = output[i] * 3.5; // Deeper low-end
+        }
+    }
+
+    return noiseBuffer;
 }
 
 // 🔹 Create Distortion Curve
