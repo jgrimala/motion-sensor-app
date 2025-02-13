@@ -34,13 +34,21 @@ document.getElementById("toggleSound").addEventListener("click", () => {
     let selectedNoise = document.getElementById("noiseType").value;
 
     if (!audioCtx) {
-        startAudio(selectedNoise);
-        document.getElementById("toggleSound").textContent = "Stop Sound";
-    } else {
-        stopAudio();
-        document.getElementById("toggleSound").textContent = "Start Sound";
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
+
+    // ✅ Ensure AudioContext is resumed (iOS Fix)
+    audioCtx.resume().then(() => {
+        if (!noiseSource) {
+            startAudio(selectedNoise);
+            document.getElementById("toggleSound").textContent = "Stop Sound";
+        } else {
+            stopAudio();
+            document.getElementById("toggleSound").textContent = "Start Sound";
+        }
+    }).catch(error => console.error("AudioContext Resume Failed:", error));
 });
+
 
 // 🔹 Start Audio
 function startAudio(noiseType = "white") {
@@ -190,6 +198,9 @@ function updateSoundFilters(event) {
     let pitch = Math.abs(event.beta);  // Forward/Backward tilt
     let roll = Math.abs(event.gamma);  // Side tilt
 
+    // ✅ Debug: Log motion sensor data
+    console.log(`Motion detected - Pitch: ${pitch}, Roll: ${roll}`);
+
     // ✅ Adjust Bandpass Filter Frequencies to enhance tonality
     filter1.frequency.value = 400 + pitch * 20;
     filter2.frequency.value = 800 + roll * 10;
@@ -204,3 +215,4 @@ function updateSoundFilters(event) {
     document.getElementById("pitch").textContent = filter1.frequency.value.toFixed(2);
     document.getElementById("volume").textContent = filter1.Q.value.toFixed(2);
 }
+
