@@ -4,7 +4,7 @@ let gainNode;
 let filter1, filter2, filter3;
 let reverb;
 let motionTracking = false;
-
+let osc1, osc2;
 // ✅ Manually set the version (NO auto-incrementation)
 // document.title = "Motion-Sensor App v1.6";
 // document.getElementById("appHeader").textContent = "Motion-Sensor App v1.6";
@@ -62,24 +62,21 @@ function startAudio(noiseType = "white") {
             noiseSource.disconnect();
         }
 
-        let osc1 = audioCtx.createOscillator();
-        let osc2 = audioCtx.createOscillator();
-        let osc3 = audioCtx.createOscillator();
+        // 🎵 Use global variables for oscillators
+        osc1 = audioCtx.createOscillator();
+        osc2 = audioCtx.createOscillator();
 
-        osc1.frequency.value = 220; // A3
-        osc2.frequency.value = 440; // A4
-        osc3.frequency.value = 660; // E5
+        osc1.type = "sawtooth";  // More harmonics than sine
+        osc2.type = "sawtooth";
 
-        osc1.type = "sine";
-        osc2.type = "sine";
-        osc3.type = "sine";
+        osc1.frequency.value = 220;
+        osc2.frequency.value = 330; 
 
         let oscGain = audioCtx.createGain();
-        oscGain.gain.value = 0.2;
+        oscGain.gain.value = 0.3;
 
         osc1.connect(oscGain);
         osc2.connect(oscGain);
-        osc3.connect(oscGain);
 
         let noiseBuffer = generateNoise(noiseType);
         noiseSource = audioCtx.createBufferSource();
@@ -87,22 +84,22 @@ function startAudio(noiseType = "white") {
         noiseSource.loop = true;
 
         gainNode = audioCtx.createGain();
-        gainNode.gain.value = 0.4;
+        gainNode.gain.value = 0.5;
 
         filter1 = audioCtx.createBiquadFilter();
         filter1.type = "bandpass";
-        filter1.frequency.value = 440; // A4 Resonance
-        filter1.Q.value = 20;
+        filter1.frequency.value = 400;
+        filter1.Q.value = 30;
 
         filter2 = audioCtx.createBiquadFilter();
         filter2.type = "bandpass";
-        filter2.frequency.value = 660; // E5 Resonance
-        filter2.Q.value = 15;
+        filter2.frequency.value = 700;
+        filter2.Q.value = 25;
 
         filter3 = audioCtx.createBiquadFilter();
         filter3.type = "bandpass";
-        filter3.frequency.value = 880; // A5 Resonance
-        filter3.Q.value = 10;
+        filter3.frequency.value = 1000;
+        filter3.Q.value = 20;
 
         reverb = createSimpleReverb();
 
@@ -117,11 +114,12 @@ function startAudio(noiseType = "white") {
         noiseSource.start();
         osc1.start();
         osc2.start();
-        osc3.start();
 
         startMotionTracking();
     }).catch(error => console.error("AudioContext Resume Failed:", error));
 }
+
+
 
 // 🔹 Stop Audio
 function stopAudio() {
@@ -193,26 +191,29 @@ function startMotionTracking() {
 }
 
 function updateSoundFilters(event) {
-    if (!filter1 || !filter2 || !filter3) return;
+    if (!filter1 || !filter2 || !filter3 || !osc1 || !osc2) return;
 
-    let pitch = Math.abs(event.beta);  // Forward/Backward tilt
-    let roll = Math.abs(event.gamma);  // Side tilt
+    let pitch = Math.abs(event.beta);  
+    let roll = Math.abs(event.gamma);  
 
-    // ✅ Debug: Log motion sensor data
-    console.log(`Motion detected - Pitch: ${pitch}, Roll: ${roll}`);
+    // ✅ Ensure oscillators update dynamically with motion
+    let baseFrequency = 220 + pitch * 2;  
+    let harmonicFrequency = baseFrequency * 1.5;  
 
-    // ✅ Adjust Bandpass Filter Frequencies to enhance tonality
+    osc1.frequency.value = baseFrequency;
+    osc2.frequency.value = harmonicFrequency;
+
+    // ✅ Adjust Bandpass Filter Frequencies
     filter1.frequency.value = 400 + pitch * 20;
-    filter2.frequency.value = 800 + roll * 10;
-    filter3.frequency.value = 1600 - roll * 5;
+    filter2.frequency.value = 700 + roll * 10;
+    filter3.frequency.value = 1000 - roll * 5;
 
-    // ✅ Adjust Bandwidth (Q Factor) for a more resonant effect
-    filter1.Q.value = 10 + Math.abs(roll / 10);
-    filter2.Q.value = 10 + Math.abs(pitch / 10);
-    filter3.Q.value = 10 + Math.abs((pitch + roll) / 20);
+    // ✅ Adjust Resonance (Q Factor)
+    filter1.Q.value = 30 + Math.abs(roll / 10);
+    filter2.Q.value = 25 + Math.abs(pitch / 10);
+    filter3.Q.value = 20 + Math.abs((pitch + roll) / 20);
 
     // ✅ Update UI
-    document.getElementById("pitch").textContent = filter1.frequency.value.toFixed(2);
+    document.getElementById("pitch").textContent = osc1.frequency.value.toFixed(2);
     document.getElementById("volume").textContent = filter1.Q.value.toFixed(2);
 }
-
