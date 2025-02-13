@@ -45,6 +45,11 @@ function startAudio(noiseType = "white") {
     }
     
     audioCtx.resume().then(() => {
+        if (noiseSource) {
+            noiseSource.stop();
+            noiseSource.disconnect();
+        }
+        
         noiseSource = audioCtx.createBufferSource();
         noiseSource.buffer = generateTonalNoise(noiseType);
         noiseSource.loop = true;
@@ -80,6 +85,19 @@ function startAudio(noiseType = "white") {
     }).catch(error => console.error("AudioContext Resume Failed:", error));
 }
 
+// 🔹 Stop Audio
+function stopAudio() {
+    if (noiseSource) {
+        noiseSource.stop();
+        noiseSource.disconnect();
+        noiseSource = null;
+    }
+    if (audioCtx) {
+        audioCtx.suspend();
+    }
+    document.getElementById("toggleSound").textContent = "Start Sound";
+}
+
 // 🔹 Generate Tonal Noise Buffer
 function generateTonalNoise(type = "white") {
     const bufferSize = 2 * audioCtx.sampleRate;
@@ -98,18 +116,6 @@ function generateTonalNoise(type = "white") {
         output[i] = (white + tone) / 2; // Blend noise with sine wave
     }
     return noiseBuffer;
-}
-
-// 🔹 Stop Audio
-function stopAudio() {
-    if (noiseSource) {
-        noiseSource.stop();
-        noiseSource.disconnect();
-        noiseSource = null;
-    }
-    if (audioCtx) {
-        audioCtx.close();
-    }
 }
 
 // 🔹 Mute/Unmute Sound
