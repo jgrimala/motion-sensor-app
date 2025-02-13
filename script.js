@@ -26,11 +26,10 @@ document.getElementById("requestPermission").addEventListener("click", async () 
     }
 });
 
-// 🔹 Start/Stop Sound (Unified Button)
+// 🔹 Start/Stop Sound
 document.getElementById("toggleSound").addEventListener("click", () => {
     let selectedNoise = document.getElementById("noiseType").value;
-
-    if (!audioCtx) {
+    if (!audioCtx || audioCtx.state === "closed") {
         startAudio(selectedNoise);
         document.getElementById("toggleSound").textContent = "Stop Sound";
     } else {
@@ -41,26 +40,17 @@ document.getElementById("toggleSound").addEventListener("click", () => {
 
 // 🔹 Start Audio
 function startAudio(noiseType = "white") {
-    if (!audioCtx) {
+    if (!audioCtx || audioCtx.state === "closed") {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } else {
-        audioCtx.resume();
-        return;
     }
-
+    
     audioCtx.resume().then(() => {
-        if (noiseSource) {
-            noiseSource.stop();
-            noiseSource.disconnect();
-        }
-
-        let noiseBuffer = generateNoise(noiseType);
         noiseSource = audioCtx.createBufferSource();
-        noiseSource.buffer = noiseBuffer;
+        noiseSource.buffer = generateTonalNoise(noiseType);
         noiseSource.loop = true;
-
+        
         gainNode = audioCtx.createGain();
-        gainNode.gain.value = isMuted ? 0 : 0.5; // Handles mute state
+        gainNode.gain.value = isMuted ? 0 : 0.5;
 
         filter1 = audioCtx.createBiquadFilter();
         filter1.type = "bandpass";
@@ -78,32 +68,77 @@ function startAudio(noiseType = "white") {
         filter3.Q.value = 10;
 
         reverb = createSimpleReverb();
-
         noiseSource.connect(filter1);
         filter1.connect(filter2);
         filter2.connect(filter3);
         filter3.connect(reverb);
         reverb.connect(gainNode);
         gainNode.connect(audioCtx.destination);
-
         noiseSource.start();
-
+        
         startMotionTracking();
     }).catch(error => console.error("AudioContext Resume Failed:", error));
 }
 
+// 🔹 Generate Tonal Noise Buffer
+function generateTonalNoise(type = "white") {
+    const bufferSize = 2 * audioCtx.sampleRate;
+    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+
+    let phase = 0;
+    let frequency = 220; // Base frequency for tonal quality
+    let sampleRate = audioCtx.sampleRate;
+
+    for (let i = 0; i < bufferSize; i++) {
+        let white = Math.random() * 2 - 1;
+        let tone = Math.sin(2 * Math.PI * frequency * phase / sampleRate);
+        phase++;
+
+        output[i] = (white + tone) / 2; // Blend noise with sine wave
+    }
+    return noiseBuffer;
+}
+
 // 🔹 Stop Audio
 function stopAudio() {
+    if (noiseSource) {
+        noiseSource.stop();
+        noiseSource.disconnect();
+        noiseSource = null;
+    }
     if (audioCtx) {
-        audioCtx.suspend();
+        audioCtx.close();
     }
 }
 
 // 🔹 Mute/Unmute Sound
 document.getElementById("muteSound").addEventListener("click", () => {
-    if (!gainNode || !audioCtx) return;
-
+    if (!gainNode) return;
     isMuted = !isMuted;
-    gainNode.gain.setValueAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime);
+    gainNode.gain.setTargetAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime, 0.1);
     document.getElementById("muteSound").textContent = isMuted ? "Unmute Sound" : "Mute Sound";
 });
+
+// 🔹 Motion-Controlled Sound Filters
+function startMotionTracking() {
+    window.removeEventListener("deviceorientation", updateSoundFilters);
+    window.addEventListener("deviceorientation", updateSoundFilters);
+}
+
+function updateSoundFilters(event) {
+    if (!filter1 || !filter2 || !filter3) return;
+    let pitch = Math.abs(event.beta);
+    let roll = Math.abs(event.gamma);
+
+    filter1.frequency.value = 400 + pitch * 20;
+    filter2.frequency.value = 800 + roll * 10;
+    filter3.frequency.value = 1600 - roll * 5;
+
+    filter1.Q.value = 5 + Math.abs(roll / 10);
+    filter2.Q.value = 5 + Math.abs(pitch / 10);
+    filter3.Q.value = 5 + Math.abs((pitch + roll) / 20);
+
+    document.getElementById("pitch").textContent = filter1.frequency.value.toFixed(2);
+    document.getElementById("volume").textContent = filter1.Q.value.toFixed(2);
+}
