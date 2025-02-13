@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Motion-Sensors App v.1.02</title>
+    <title>Motion-Controlled Resonant Drone</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,13 +11,14 @@
 
     <button id="requestPermission">Enable Motion Sensors</button>
     <button id="toggleSound">Start Sound</button>
-    <button id="muteSound">Mute Sound</button> <!-- New mute button -->
+    <button id="resetSound">Stop & Reset</button>
 
     <div class="controls">
         <label for="noiseType">Select Noise Type:</label>
         <select id="noiseType">
             <option value="white">White Noise</option>
             <option value="pink">Pink Noise</option>
+            <option value="brown">Brown Noise</option>
         </select>
     </div>
 

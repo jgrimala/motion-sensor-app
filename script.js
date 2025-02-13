@@ -1,10 +1,9 @@
 let audioCtx;
-let noiseSource = null;
+let noiseSource = null; // globally defined
 let gainNode;
 let filter1, filter2, filter3;
 let reverb;
-let isMuted = false;
-let prevPitch = 0, prevRoll = 0;
+let motionTracking = false;
 
 // 🔹 Request Motion Permission
 document.getElementById("requestPermission").addEventListener("click", async () => {
@@ -29,7 +28,8 @@ document.getElementById("requestPermission").addEventListener("click", async () 
 // 🔹 Start/Stop Sound
 document.getElementById("toggleSound").addEventListener("click", () => {
     let selectedNoise = document.getElementById("noiseType").value;
-    if (!audioCtx || audioCtx.state === "closed") {
+
+    if (!audioCtx) {
         startAudio(selectedNoise);
         document.getElementById("toggleSound").textContent = "Stop Sound";
     } else {
@@ -38,24 +38,34 @@ document.getElementById("toggleSound").addEventListener("click", () => {
     }
 });
 
-// 🔹 Start Audio
+// 🔹 Stop & Reset Button
+document.getElementById("resetSound").addEventListener("click", () => {
+    stopAudio();
+    resetFilters();
+    document.getElementById("toggleSound").textContent = "Start Sound";
+});
+
+// 🔹 Initialize Audio with Resonant Filters & Reverb
 function startAudio(noiseType = "white") {
-    if (!audioCtx || audioCtx.state === "closed") {
+    if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    
+
+    // ✅ Resume audio first before starting playback
     audioCtx.resume().then(() => {
+        // ✅ Ensure old noise source is removed before creating a new one
         if (noiseSource) {
             noiseSource.stop();
             noiseSource.disconnect();
         }
-        
+
+        let noiseBuffer = generateNoise(noiseType);
         noiseSource = audioCtx.createBufferSource();
-        noiseSource.buffer = generateTonalNoise(noiseType);
+        noiseSource.buffer = noiseBuffer;
         noiseSource.loop = true;
-        
+
         gainNode = audioCtx.createGain();
-        gainNode.gain.value = isMuted ? 0 : 0.5;
+        gainNode.gain.value = 0.5; // ✅ Ensure sound is not muted
 
         filter1 = audioCtx.createBiquadFilter();
         filter1.type = "bandpass";
@@ -72,59 +82,120 @@ function startAudio(noiseType = "white") {
         filter3.frequency.value = 1600;
         filter3.Q.value = 10;
 
+        // ✅ Change reverb type (Simple Reverb Instead of Impulse Response)
         reverb = createSimpleReverb();
+
+        // ✅ Connect nodes properly
         noiseSource.connect(filter1);
         filter1.connect(filter2);
         filter2.connect(filter3);
         filter3.connect(reverb);
         reverb.connect(gainNode);
         gainNode.connect(audioCtx.destination);
+
         noiseSource.start();
-        
+
+        // ✅ Start motion tracking when sound starts
         startMotionTracking();
     }).catch(error => console.error("AudioContext Resume Failed:", error));
 }
+
+
+
 
 // 🔹 Stop Audio
 function stopAudio() {
     if (noiseSource) {
         noiseSource.stop();
         noiseSource.disconnect();
-        noiseSource = null;
+        noiseSource = null;  // Ensure noise source is properly reset
     }
+
     if (audioCtx) {
-        audioCtx.suspend();
+        audioCtx.close();
+        audioCtx = null;
     }
-    document.getElementById("toggleSound").textContent = "Start Sound";
+
+    // ✅ Remove motion tracking when stopping
+    window.removeEventListener("deviceorientation", updateSoundFilters);
 }
 
-// 🔹 Generate Tonal Noise Buffer
-function generateTonalNoise(type = "white") {
+
+
+
+// 🔹 Reset Sound Filter Parameters
+function resetFilters() {
+    if (filter1) filter1.frequency.value = 400;
+    if (filter2) filter2.frequency.value = 800;
+    if (filter3) filter3.frequency.value = 1600;
+
+    document.getElementById("pitch").textContent = "400";
+    document.getElementById("volume").textContent = "5";
+}
+
+
+// 🔹 Generate Noise Buffer
+function generateNoise(type = "white") {
     const bufferSize = 2 * audioCtx.sampleRate;
     const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
 
-    let phase = 0;
-    let frequency = 220; // Base frequency for tonal quality
-    let sampleRate = audioCtx.sampleRate;
+    let lastOut = 0;
 
     for (let i = 0; i < bufferSize; i++) {
         let white = Math.random() * 2 - 1;
-        let tone = Math.sin(2 * Math.PI * frequency * phase / sampleRate);
-        phase++;
-
-        output[i] = (white + tone) / 2; // Blend noise with sine wave
+        
+        if (type === "white") {
+            output[i] = white;
+        } else if (type === "pink") {
+            output[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = output[i];
+        } else if (type === "brown") {
+            lastOut += 0.02 * white;
+            lastOut = Math.max(-1, Math.min(1, lastOut));  // Prevent excessive drift
+            output[i] = lastOut * 0.3;
+        }
     }
+
     return noiseBuffer;
 }
 
-// 🔹 Mute/Unmute Sound
-document.getElementById("muteSound").addEventListener("click", () => {
-    if (!gainNode) return;
-    isMuted = !isMuted;
-    gainNode.gain.setTargetAtTime(isMuted ? 0 : 0.5, audioCtx.currentTime, 0.1);
-    document.getElementById("muteSound").textContent = isMuted ? "Unmute Sound" : "Mute Sound";
-});
+
+
+// 🔹 Load Reverb Impulse / commented for test with a simple delay effect reverb
+// function loadReverbImpulse(convolver) {
+//     fetch("https://cdn.freesound.org/reverb-impulse-response.wav")
+//         .then(response => response.arrayBuffer())
+//         .then(data => audioCtx.decodeAudioData(data, buffer => {
+//             convolver.buffer = buffer;
+//         }))
+//         .catch(error => console.error("Reverb loading failed:", error));
+
+//     // Set a basic impulse response while loading
+//     const fakeBuffer = audioCtx.createBuffer(2, 1, audioCtx.sampleRate);
+//     convolver.buffer = fakeBuffer;
+// }
+
+function createSimpleReverb() {
+    let delay = audioCtx.createDelay();
+    delay.delayTime.value = 0.3; // Short delay for reverb effect
+
+    let feedback = audioCtx.createGain();
+    feedback.gain.value = 0.5; // Adjust for more/less reverb
+
+    let filter = audioCtx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 2000; // Filter out high frequencies in reverb
+
+    delay.connect(feedback);
+    feedback.connect(filter);
+    filter.connect(delay);
+
+    let reverb = audioCtx.createGain();
+    delay.connect(reverb);
+
+    return reverb;
+}
 
 // 🔹 Motion-Controlled Sound Filters
 function startMotionTracking() {
@@ -132,19 +203,27 @@ function startMotionTracking() {
     window.addEventListener("deviceorientation", updateSoundFilters);
 }
 
+
+
 function updateSoundFilters(event) {
     if (!filter1 || !filter2 || !filter3) return;
-    let pitch = Math.abs(event.beta);
-    let roll = Math.abs(event.gamma);
 
+    let pitch = Math.abs(event.beta);  // Forward/Backward tilt
+    let roll = Math.abs(event.gamma);  // Side tilt
+
+    // ✅ Adjust Bandpass Filter Frequencies
     filter1.frequency.value = 400 + pitch * 20;
     filter2.frequency.value = 800 + roll * 10;
     filter3.frequency.value = 1600 - roll * 5;
 
+    // ✅ Adjust Bandwidth (Q Factor) - Now updates!
     filter1.Q.value = 5 + Math.abs(roll / 10);
     filter2.Q.value = 5 + Math.abs(pitch / 10);
     filter3.Q.value = 5 + Math.abs((pitch + roll) / 20);
 
+    // ✅ Update UI
     document.getElementById("pitch").textContent = filter1.frequency.value.toFixed(2);
     document.getElementById("volume").textContent = filter1.Q.value.toFixed(2);
 }
+
+

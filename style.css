@@ -23,6 +23,18 @@ button:hover {
     background-color: #0056b3;
 }
 
+.controls {
+    margin-top: 10px;
+}
+
+select {
+    font-size: 16px;
+    padding: 8px;
+    border-radius: 5px;
+    background: white;
+    cursor: pointer;
+}
+
 .status {
     background: white;
     padding: 20px;
@@ -32,14 +44,15 @@ button:hover {
     border-radius: 8px;
 }
 
-@media (max-width: 600px) {
-    button, select {
-        width: 100%;
-        padding: 12px;
-    }
+h1 {
+    color: #333;
+}
 
-    .status {
-        width: 90%;
-        font-size: 14px;
-    }
+#resetSound {
+    background-color: #dc3545;
+    color: white;
+}
+
+#resetSound:hover {
+    background-color: #a71d2a;
 }
