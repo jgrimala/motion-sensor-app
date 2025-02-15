@@ -5,11 +5,9 @@ let filter1, filter2, filter3;
 let reverb;
 let motionTracking = false;
 let osc1, osc2;
-// ✅ Manually set the version (NO auto-incrementation)
-// document.title = "Motion-Sensor App v1.6";
-// document.getElementById("appHeader").textContent = "Motion-Sensor App v1.6";
 
-// 🔹 Request Motion Permission
+
+//  Request Motion Permission
 document.getElementById("requestPermission").addEventListener("click", async () => {
     if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
         try {
@@ -29,7 +27,7 @@ document.getElementById("requestPermission").addEventListener("click", async () 
     }
 });
 
-// 🔹 Start/Stop Sound
+//  Start/Stop Sound
 document.getElementById("toggleSound").addEventListener("click", () => {
     let selectedNoise = document.getElementById("noiseType").value;
 
@@ -37,7 +35,7 @@ document.getElementById("toggleSound").addEventListener("click", () => {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    // ✅ Ensure AudioContext is resumed (iOS Fix)
+    //  Ensure AudioContext is resumed (iOS Fix)
     audioCtx.resume().then(() => {
         if (!noiseSource) {
             startAudio(selectedNoise);
@@ -50,7 +48,7 @@ document.getElementById("toggleSound").addEventListener("click", () => {
 });
 
 
-// 🔹 Start Audio
+//  Start Audio
 function startAudio(noiseType = "white") {
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -121,7 +119,7 @@ function startAudio(noiseType = "white") {
 
 
 
-// 🔹 Stop Audio
+//  Stop Audio
 function stopAudio() {
     if (noiseSource) {
         noiseSource.stop();
@@ -137,7 +135,7 @@ function stopAudio() {
     window.removeEventListener("deviceorientation", updateSoundFilters);
 }
 
-// 🔹 Generate Noise
+//  Generate Noise
 function generateNoise(type = "white") {
     const bufferSize = 2 * audioCtx.sampleRate;
     const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -157,7 +155,7 @@ function generateNoise(type = "white") {
     return noiseBuffer;
 }
 
-// 🔹 Create Simple Reverb
+//  Create Simple Reverb
 function createSimpleReverb() {
     let delay = audioCtx.createDelay();
     delay.delayTime.value = 0.3; // Short delay for a reverb-like effect
@@ -179,7 +177,7 @@ function createSimpleReverb() {
     return reverb;
 }
 
-// 🔹 Motion-Controlled Sound Filters
+//  Motion-Controlled Sound Filters
 function startMotionTracking() {
     console.log("Motion tracking started");
 
@@ -196,24 +194,24 @@ function updateSoundFilters(event) {
     let pitch = Math.abs(event.beta);  
     let roll = Math.abs(event.gamma);  
 
-    // ✅ Ensure oscillators update dynamically with motion
+    //  Ensure oscillators update dynamically with motion
     let baseFrequency = 220 + pitch * 2;  
     let harmonicFrequency = baseFrequency * 1.5;  
 
     osc1.frequency.value = baseFrequency;
     osc2.frequency.value = harmonicFrequency;
 
-    // ✅ Adjust Bandpass Filter Frequencies
+    //  Adjust Bandpass Filter Frequencies
     filter1.frequency.value = 400 + pitch * 20;
     filter2.frequency.value = 700 + roll * 10;
     filter3.frequency.value = 1000 - roll * 5;
 
-    // ✅ Adjust Resonance (Q Factor)
+    //  Adjust Resonance (Q Factor)
     filter1.Q.value = 30 + Math.abs(roll / 10);
     filter2.Q.value = 25 + Math.abs(pitch / 10);
     filter3.Q.value = 20 + Math.abs((pitch + roll) / 20);
 
-    // ✅ Update UI
+    //  Update UI
     document.getElementById("pitch").textContent = osc1.frequency.value.toFixed(2);
     document.getElementById("volume").textContent = filter1.Q.value.toFixed(2);
 }
